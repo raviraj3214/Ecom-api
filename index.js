@@ -1,11 +1,14 @@
 const express = require("express");
+const dotenv = require("dotenv");
+
 const bodyParser = require("body-parser");
+dotenv.config();
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
 const app = express();
-const port = 8000;
+const port = process.env.PORT;
 const cors = require("cors");
 app.use(cors());
 
@@ -18,7 +21,7 @@ app.listen(port, () => {
 });
 
 mongoose
-  .connect("mongodb+srv://sujananand:sujan@cluster0.cueelai.mongodb.net/", {
+  .connect(process.env.DB, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -29,8 +32,8 @@ mongoose
     console.log("Error connecting to MongoDb", err);
   });
 
-const User = require("./models/user");
-const Order = require("./models/order");
+const Us = require("./models/user");
+const Ord = require("./models/order");
 
 const sendVerificationEmail = async (email, verificationToken) => {
   // Create a Nodemailer transporter
@@ -48,7 +51,7 @@ const sendVerificationEmail = async (email, verificationToken) => {
     from: "amazon.com",
     to: email,
     subject: "Email Verification",
-    text: `Please click the following link to verify your email: http://localhost:8000/verify/${verificationToken}`,
+    text: `Please click the following link to verify your email: http://localhost:${process.env.PORT}/verify/${verificationToken}`,
   };
 
   // Send the email
@@ -67,14 +70,14 @@ app.post("/register", async (req, res) => {
     const { name, email, password } = req.body;
 
     // Check if the email is already registered
-    const existingUser = await User.findOne({ email });
+    const existingUser = await Us.findOne({ email });
     if (existingUser) {
       console.log("Email already registered:", email); // Debugging statement
       return res.status(400).json({ message: "Email already registered" });
     }
 
     // Create a new user
-    const newUser = new User({ name, email, password });
+    const newUser = new Us({ name, email, password });
 
     // Generate and store the verification token
     newUser.verificationToken = crypto.randomBytes(20).toString("hex");
@@ -105,7 +108,7 @@ app.get("/verify/:token", async (req, res) => {
     const token = req.params.token;
 
     //Find the user witht the given verification token
-    const user = await User.findOne({ verificationToken: token });
+    const user = await Us.findOne({ verificationToken: token });
     if (!user) {
       return res.status(404).json({ message: "Invalid verification token" });
     }
@@ -136,7 +139,7 @@ app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     //check if the user exists
-    const user = await User.findOne({ email });
+    const user = await Us.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
@@ -183,7 +186,7 @@ app.get("/addresses/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    const user = await User.findById(userId);
+    const user = await Us.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -201,7 +204,7 @@ app.post("/orders", async (req, res) => {
     const { userId, cartItems, totalPrice, shippingAddress, paymentMethod } =
       req.body;
 
-    const user = await User.findById(userId);
+    const user = await Us.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -215,7 +218,7 @@ app.post("/orders", async (req, res) => {
     }));
 
     //create a new Order
-    const order = new Order({
+    const order = new Ord({
       user: userId,
       products: products,
       totalPrice: totalPrice,
@@ -237,7 +240,7 @@ app.get("/profile/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    const user = await User.findById(userId);
+    const user = await Us.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -253,7 +256,7 @@ app.get("/orders/:userId",async(req,res) => {
   try{
     const userId = req.params.userId;
 
-    const orders = await Order.find({user:userId}).populate("user");
+    const orders = await Ord.find({user:userId}).populate("user");
 
     if(!orders || orders.length === 0){
       return res.status(404).json({message:"No orders found for this user"})
